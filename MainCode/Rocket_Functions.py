@@ -14,9 +14,8 @@ class Rocket:
     drag_cofficient = 0 #unitless
     air_density = 1.225 #kg/m^3 standard air density at sea level
 
-    def __init__(self, w, d, l_force, cross, drag_cf):
+    def __init__(self, w, l_force, cross, drag_cf):
         self.weight = w
-        self.drag = d
         self.liftoff_force = l_force
         self.cross_area = cross
         self.drag_coefficient = drag_cf
@@ -35,10 +34,14 @@ class Rocket:
         self.acceleration_up = a
         totalVelocity = math.sqrt((self.velocity_up*math.tan(x))**2 + (self.velocity_up*math.tan(y))**2 + self.velocity_up**2) #full velocity, accounting for possible x & y differences
         self.drag = 0.5 * self.drag_coefficient * self.air_density * self.cross_area * totalVelocity**2 #drag force = 0.5 * drag coefficient * density of air * cross-sectional area * total velocity^2
+        self.liftoff_force -= self.drag + self.weight
 
     def getX(self):
         return self.x_angle
     
     def getY(self):
         return self.y_angle
+    
+    def getUpwardVelocity(self):
+        return self.velocity_up
     
