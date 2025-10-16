@@ -13,6 +13,10 @@ class Rocket:
     time = 0 #in seconds
     drag_cofficient = 0 #unitless
     air_density = 1.225 #kg/m^3 standard air density at sea level
+    parachute_drag_coefficient = 1.5 #unitless
+    parachute_cross_area = 0.38484510006 # assuming 0.7m diameter
+    parachute_on = False
+    
 
     def __init__(self, w, l_force, cross, drag_cf):
         self.weight = w
@@ -26,15 +30,19 @@ class Rocket:
         self.x_angle += x #simulate the effect of servos moving
         self.y_angle += y #in reality would be replaced with imu readings
 
-    def updateState(self, x, y, s, t, al, a): #input x adjustment, y adjustment, upward speed, time, altitude, acceleration (by motors)
-        self.adjustDirection(x, y)
+    def updateState(self, s, t, al, f): #input upward speed, time, altitude, lift force (by motors)
         self.velocity_up = s
         self.time = t
         self.altitude = al
-        self.acceleration_up = a
-        totalVelocity = math.sqrt((self.velocity_up*math.tan(x))**2 + (self.velocity_up*math.tan(y))**2 + self.velocity_up**2) #full velocity, accounting for possible x & y differences
+        self.acceleration_up = (f-self.weight)/(self.weight/9.81)
+        
+        totalVelocity = math.sqrt((self.velocity_up*math.tan(self.x_angle))**2 + (self.velocity_up*math.tan(self.y_angle))**2 + self.velocity_up**2) #full velocity, accounting for possible x & y differences
         self.drag = 0.5 * self.drag_coefficient * self.air_density * self.cross_area * totalVelocity**2 #drag force = 0.5 * drag coefficient * density of air * cross-sectional area * total velocity^2
+
         self.liftoff_force -= self.drag + self.weight
+
+    def deploy_parachute(self):
+        self.parachute_on = True
 
     def getX(self):
         return self.x_angle
