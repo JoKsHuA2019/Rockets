@@ -37,18 +37,47 @@ def run_PID():
 
     myRocket.adjustDirection(output_x, output_y)
 
-    print("x_adjust = ", output_x)
-    print("y_adjust = ", output_y)
-
 #---------------matplotlib setup----------------
 
-plt.plot([1,2,3,4])
+plt.ion()
+
+fig, axes = plt.subplots(2, 2, layout='constrained')
+(ax1, ax2), (ax3, ax4) = axes
+plt.tight_layout()
+
+time_data = []
+velocity_data = []
+accel_data = []
+x_fin_data = []
+y_fin_data = []
+
+line1, = ax1.plot([], [])
+line2, = ax2.plot([], [])
+line3, = ax3.plot([], [])
+line4, = ax4.plot([], [])
+
+ax1.set_title('Rocket Velocity vs Time')
+ax1.set_xlabel('time [s]')
+ax1.set_ylabel('velocity [m/s]')
+
+ax2.set_title('Rocket Acceleration vs Time')
+ax2.set_xlabel('time [s]')
+ax2.set_ylabel('acceleration [m/s^2]')
+
+ax3.set_title('Rocket x fin pos vs Time')
+ax3.set_xlabel('time [s]')
+ax3.set_ylabel('x fin position [degree]')
+
+ax4.set_title('Rocket y fin pos vs Time')
+ax4.set_xlabel('time [s]')
+ax4.set_ylabel('y fin position [degree]')
 
 #----------------Force Function (of motors)-----------------
 def motor_force(t):
-    new_force = -t**2/10 + 5
+    new_force = -(t**2) + 60
     if (new_force < 0):
         new_force = 0
+    print(new_force)
     return new_force
 
 #----------------- Simulation Setup -------------------
@@ -74,7 +103,6 @@ while True:
 
         myRocket.inputWind(wind_speed_x, wind_speed_y)
 
-
         wind_time = time.time()
 
     if (time.time() > update_time + 0.01):
@@ -82,6 +110,9 @@ while True:
         total_elapsed_time = time.time() - start_time
 
         update_force_up = motor_force(total_elapsed_time) - (myRocket.weight + myRocket.drag)
+        if (myRocket.velocity_up <= 0): 
+            update_force_up = motor_force(total_elapsed_time) - myRocket.weight + myRocket.drag
+
         curr_accel = update_force_up/myRocket.weight
 
         update_speed = myRocket.velocity_up + time_elapsed_since_update*((myRocket.acceleration_up+curr_accel)/2) #v=at, a = v/t
@@ -114,9 +145,35 @@ while True:
         #update angle
         update_x_angle = myRocket.x_angle + ((x_angular_velo + myRocket.x_angular_velocity)/2) * time_elapsed_since_update
         update_y_angle = myRocket.y_angle + ((y_angular_velo + myRocket.y_angular_velocity)/2) * time_elapsed_since_update
+        #account for fin correction
+        update_x_angle += myRocket.x_fin/1000
+        update_y_angle += myRocket.y_fin/1000
 
         myRocket.updateState(update_speed, curr_accel, update_time, update_altitude, update_force_up, update_x_angle, update_y_angle)
         update_time = time.time()
 
 
-    
+        #display graphs
+        if (time.time()%0.1 <0.01):
+            time_data.append(time.time())
+            velocity_data.append(myRocket.velocity_up)
+            accel_data.append(myRocket.acceleration_up)
+            x_fin_data.append(myRocket.x_fin)
+            y_fin_data.append(myRocket.y_fin)
+
+            line1.set_data(time_data, velocity_data)
+            line2.set_data(time_data, accel_data)
+            line3.set_data(time_data, x_fin_data)
+            line4.set_data(time_data, y_fin_data)
+
+            ax1.relim()
+            ax1.autoscale_view()
+            ax2.relim()
+            ax2.autoscale_view()
+            ax3.relim()
+            ax3.autoscale_view()
+            ax4.relim()
+            ax4.autoscale_view()
+
+            plt.draw()
+            plt.pause(0.01)

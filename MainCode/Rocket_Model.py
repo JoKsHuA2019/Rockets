@@ -73,7 +73,5 @@ class Rocket:
         self.altitude = al
         self.acceleration_up = a
         
-        
-
         self.x_angle = x_a
         self.y_angle = y_a
