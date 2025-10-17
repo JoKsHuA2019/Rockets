@@ -21,10 +21,10 @@ class Rocket:
     #rocket angling ----
     x_fin = 0 #in degrees
     y_fin = 0 #in degrees
-    distance_cm_cp = -0.05 #distance from the cm(center of mass) to the cp(center of pressure)
-    side_drag_cf = 0.9 #the drag coefficient of the side of the rocket(since wide blows from the side)
+    distance_cm_cp = 0 #distance from the cm(center of mass) to the cp(center of pressure)
+    side_drag_cf = 0 #the drag coefficient of the side of the rocket(since wide blows from the side)
     side_area = 0 #total area of vertical cross-sectional area of rocket
-    moment_slope_per_radian = -0.1 #change in moment coefficient/change in radians, units: 1/rad
+    moment_slope_per_radian = 0 #change in moment coefficient/change in radians, units: 1/rad
     moment_reference_length = 0 #length as reference to keep moment coefficient unitless ;)
     x_angle = 0 #in radians
     y_angle = 0 #in radians
@@ -64,6 +64,7 @@ class Rocket:
     def updateState(self, s, a, t, al, f, x_a, y_a): #input upward speed, time, altitude, lift force (by motors), x angle, y angle
         #---- calculate values of rocket
         totalVelocity = math.sqrt((self.velocity_up*math.tan(self.x_angle))**2 + (self.velocity_up*math.tan(self.y_angle))**2 + self.velocity_up**2) #full velocity, accounting for possible x & y differences
+        self.total_velocity = totalVelocity
         self.drag = 0.5 * self.nose_drag_cf * self.air_density * self.cross_area * ((self.total_velocity+totalVelocity)/2)**2 #drag force = 0.5 * drag coefficient * density of air * cross-sectional area * total velocity^2
 
         self.liftoff_force = f

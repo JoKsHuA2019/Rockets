@@ -14,17 +14,20 @@ rocket_drag_coefficient = 0.75 #drag coefficient
 rocket_total_liftoff_force = 80 #motor force
 rocket_cross_area = math.pi * rocket_radius**2 #in m^2
 
-distance_cm_cp = -0.05 #distance from the cm(center of mass) to the cp(center of pressure)
+distance_cm_cp = 0.05 #distance from the cm(center of mass) to the cp(center of pressure)
 side_drag_cf = 0.9 #the drag coefficient of the side of the rocket(since wide blows from the side)
 side_area = rocket_height * rocket_radius*2 #total area of vertical cross-sectional area of rocket (assuming 0.8m by 0.05m) in m^2
-moment_slope_per_radian = -0.1 #change in moment coefficient/change in radians, units: 1/rad
+moment_slope_per_radian = 1.5 #change in moment coefficient/change in radians, units: 1/rad
 moment_reference_length = 0.05 #length as reference to keep moment coefficient unitless ;)
 moment_of_inertia = 0.5 * (rocket_weight/9.81) * rocket_radius**2 #calculated assuming rocket is a perfect cylinder
 
 #-------------- PID setup -------------
 
-pid_x = PID(1, 0.1, 0.05, setpoint=0)
-pid_y = PID(1, 0.1, 0.05, setpoint=0)
+pid_x = PID(0.15, 0.03, 0.01, setpoint=0)
+pid_y = PID(0.15, 0.03, 0.01, setpoint=0)
+
+pid_x.output_limits = (-0.35, 0.35)
+pid_y.output_limits = (-0.35, 0.35)
 
 pid_x.sample_time = 0.01
 pid_y.sample_time = 0.01
@@ -41,8 +44,8 @@ def run_PID():
 
 plt.ion()
 
-fig, axes = plt.subplots(2, 2, layout='constrained')
-(ax1, ax2), (ax3, ax4) = axes
+fig, axes = plt.subplots(2, 3, layout='constrained')
+(ax1, ax2, ax3), (ax4, ax5, ax6) = axes
 plt.tight_layout()
 
 time_data = []
@@ -50,11 +53,14 @@ velocity_data = []
 accel_data = []
 x_fin_data = []
 y_fin_data = []
+altitude_data = []
 
 line1, = ax1.plot([], [])
 line2, = ax2.plot([], [])
 line3, = ax3.plot([], [])
 line4, = ax4.plot([], [])
+line5, = ax5.plot([], [])
+line6, = ax6.plot([], [])
 
 ax1.set_title('Rocket Velocity vs Time')
 ax1.set_xlabel('time [s]')
@@ -72,12 +78,16 @@ ax4.set_title('Rocket y fin pos vs Time')
 ax4.set_xlabel('time [s]')
 ax4.set_ylabel('y fin position [degree]')
 
+ax5.set_title('Rocket altitude vs Time')
+ax5.set_xlabel('time [s]')
+ax5.set_ylabel('altitude [m]')
+
 #----------------Force Function (of motors)-----------------
 def motor_force(t):
-    new_force = -(t**2) + 60
+    new_force = -(t**2) + 40
     if (new_force < 0):
         new_force = 0
-    print(new_force)
+    #print(new_force)
     return new_force
 
 #----------------- Simulation Setup -------------------
@@ -109,11 +119,10 @@ while True:
         time_elapsed_since_update = time.time() - update_time
         total_elapsed_time = time.time() - start_time
 
-        update_force_up = motor_force(total_elapsed_time) - (myRocket.weight + myRocket.drag)
-        if (myRocket.velocity_up <= 0): 
-            update_force_up = motor_force(total_elapsed_time) - myRocket.weight + myRocket.drag
+        #subtract the drag with same sign as velocity (in order to make sure that it is oppositin force)
+        update_force_up = motor_force(total_elapsed_time) - myRocket.weight - math.copysign(myRocket.drag, myRocket.velocity_up)
 
-        curr_accel = update_force_up/myRocket.weight
+        curr_accel = update_force_up/myRocket.mass
 
         update_speed = myRocket.velocity_up + time_elapsed_since_update*((myRocket.acceleration_up+curr_accel)/2) #v=at, a = v/t
         update_altitude = myRocket.altitude + (update_speed + myRocket.velocity_up)*time_elapsed_since_update/2 #x = vt
@@ -127,9 +136,16 @@ while True:
         #as the loop goes on, every 0.01 seconds, modifying the original-----
 
         #to calculate, we use dynamic tilt equation I(d^2theta/dt^2) = torque(wind) - torque(restoring)
+
         #first, calculate the torque of rocket restoration
-        x_restoring_torque = 0.5 * myRocket.air_density * (myRocket.velocity_up**2 + myRocket.x_wind**2) * side_area * moment_reference_length * moment_slope_per_radian * math.tanh(myRocket.x_wind/((myRocket.velocity_up+update_speed)/2))
-        y_restoring_torque = 0.5 * myRocket.air_density * (myRocket.velocity_up**2 + myRocket.y_wind**2) * side_area * moment_reference_length * moment_slope_per_radian * math.tanh(myRocket.y_wind/((myRocket.velocity_up+update_speed)/2))
+    #    x_restoring_torque = 0.5 * myRocket.air_density * (myRocket.velocity_up**2 + myRocket.x_wind**2) * side_area * moment_reference_length * moment_slope_per_radian * math.tanh(myRocket.x_wind/((myRocket.velocity_up+update_speed)/2))
+    #    y_restoring_torque = 0.5 * myRocket.air_density * (myRocket.velocity_up**2 + myRocket.y_wind**2) * side_area * moment_reference_length * moment_slope_per_radian * math.tanh(myRocket.y_wind/((myRocket.velocity_up+update_speed)/2))
+
+        #more linear restoring torque
+        x_restoring_torque = -moment_slope_per_radian * myRocket.x_angle
+        y_restoring_torque = -moment_slope_per_radian * myRocket.y_angle
+
+
         #then, we need to calculate the force of the wind on the rocket
         x_wind_force = 0.5 * myRocket.air_density * (myRocket.velocity_up**2 + myRocket.x_wind**2) * side_drag_cf * side_area
         y_wind_force = 0.5 * myRocket.air_density * (myRocket.velocity_up**2 + myRocket.y_wind**2) * side_drag_cf * side_area
@@ -137,17 +153,27 @@ while True:
         x_wind_torque = x_wind_force * distance_cm_cp
         y_wind_torque = y_wind_force * distance_cm_cp
         #calculate angular acceleration
-        x_wind_angular_accel = (x_wind_torque - x_restoring_torque) / moment_of_inertia
-        y_wind_angular_accel = (y_wind_torque - y_restoring_torque) / moment_of_inertia
+        x_wind_angular_accel = (x_wind_torque + x_restoring_torque) / moment_of_inertia
+        y_wind_angular_accel = (y_wind_torque + y_restoring_torque) / moment_of_inertia
+        #dampen angular accel to prevent oscillations
+        angular_damping = 2.5
+        x_wind_angular_accel -= angular_damping * myRocket.x_angular_velocity
+        y_wind_angular_accel -= angular_damping * myRocket.y_angular_velocity
         #update angular velocity
         x_angular_velo = myRocket.x_angular_velocity + x_wind_angular_accel * time_elapsed_since_update
         y_angular_velo = myRocket.y_angular_velocity + y_wind_angular_accel * time_elapsed_since_update
+        # limit the angluar velocities to prevent blowup
+        x_angular_velo = max(min(x_angular_velo, 10), -10)
+        y_angular_velo = max(min(y_angular_velo, 10), -10)
         #update angle
         update_x_angle = myRocket.x_angle + ((x_angular_velo + myRocket.x_angular_velocity)/2) * time_elapsed_since_update
         update_y_angle = myRocket.y_angle + ((y_angular_velo + myRocket.y_angular_velocity)/2) * time_elapsed_since_update
         #account for fin correction
-        update_x_angle += myRocket.x_fin/1000
-        update_y_angle += myRocket.y_fin/1000
+        update_x_angle -= myRocket.x_fin/4
+        update_y_angle -= myRocket.y_fin/4
+
+        print("x_angle:", update_x_angle * 180/math.pi)
+        print("y_angle:", update_y_angle * 180/math.pi)
 
         myRocket.updateState(update_speed, curr_accel, update_time, update_altitude, update_force_up, update_x_angle, update_y_angle)
         update_time = time.time()
@@ -160,11 +186,13 @@ while True:
             accel_data.append(myRocket.acceleration_up)
             x_fin_data.append(myRocket.x_fin)
             y_fin_data.append(myRocket.y_fin)
+            altitude_data.append(myRocket.altitude)
 
             line1.set_data(time_data, velocity_data)
             line2.set_data(time_data, accel_data)
             line3.set_data(time_data, x_fin_data)
             line4.set_data(time_data, y_fin_data)
+            line5.set_data(time_data, altitude_data)
 
             ax1.relim()
             ax1.autoscale_view()
@@ -174,6 +202,11 @@ while True:
             ax3.autoscale_view()
             ax4.relim()
             ax4.autoscale_view()
+            ax5.relim()
+            ax5.autoscale_view()
 
             plt.draw()
             plt.pause(0.01)
+
+        if (myRocket.altitude < 0): 
+            break
