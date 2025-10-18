@@ -44,7 +44,7 @@ def run_PID():
 
 plt.ion()
 
-fig, axes = plt.subplots(2, 3, layout='constrained')
+fig, axes = plt.subplots(2, 3, figsize=(12, 8), layout='constrained')
 (ax1, ax2, ax3), (ax4, ax5, ax6) = axes
 plt.tight_layout()
 
@@ -54,6 +54,7 @@ accel_data = []
 x_fin_data = []
 y_fin_data = []
 altitude_data = []
+wind_data = []
 
 line1, = ax1.plot([], [])
 line2, = ax2.plot([], [])
@@ -82,9 +83,13 @@ ax5.set_title('Rocket altitude vs Time')
 ax5.set_xlabel('time [s]')
 ax5.set_ylabel('altitude [m]')
 
+ax6.set_title('Wind Speed vs Time')
+ax6.set_xlabel('time [s]')
+ax6.set_ylabel('wind speed [m/s]')
+
 #----------------Force Function (of motors)-----------------
 def motor_force(t):
-    new_force = -(t**2) + 40
+    new_force = -(t**2) + 45
     if (new_force < 0):
         new_force = 0
     #print(new_force)
@@ -96,6 +101,11 @@ def motor_force(t):
 wind_speed_x = 0
 wind_speed_y = 0
 
+#stats
+highest_altitude = 0
+highest_velocity = 0
+total_time = 0
+
 #run the simulation by the time elapsed (time.monotonic())
 start_time = time.time()
 wind_time = time.time()
@@ -105,8 +115,18 @@ update_time = time.time()
 
 #----------------- Simulation --------------------
 
+#still has a problem of having very oscillating accel/velo when liftoff force is high
+#there is also a trend for some reason that the fins only move in the negative direction
+#maybe add a second PID for angling during descent, not very needed though
+
 while True:
-    run_PID()
+    if (myRocket.velocity_up > 0):
+        run_PID()
+    else:
+        myRocket.parachute_on = True
+        myRocket.x_fin = 0
+        myRocket.y_fin = 0
+
     if (time.time() > wind_time + 0.25): #makes sure the wind only changes in 0.25 second spacing
         wind_speed_x = Wind.next_wind(wind_speed_x)
         wind_speed_y = Wind.next_wind(wind_speed_y)
@@ -162,15 +182,17 @@ while True:
         #update angular velocity
         x_angular_velo = myRocket.x_angular_velocity + x_wind_angular_accel * time_elapsed_since_update
         y_angular_velo = myRocket.y_angular_velocity + y_wind_angular_accel * time_elapsed_since_update
-        # limit the angluar velocities to prevent blowup
+
+        #limit the angluar velocities to get no more blowup (old problem, now sorta fixed)
         x_angular_velo = max(min(x_angular_velo, 10), -10)
         y_angular_velo = max(min(y_angular_velo, 10), -10)
+
         #update angle
         update_x_angle = myRocket.x_angle + ((x_angular_velo + myRocket.x_angular_velocity)/2) * time_elapsed_since_update
         update_y_angle = myRocket.y_angle + ((y_angular_velo + myRocket.y_angular_velocity)/2) * time_elapsed_since_update
         #account for fin correction
-        update_x_angle -= myRocket.x_fin/4
-        update_y_angle -= myRocket.y_fin/4
+        update_x_angle -= myRocket.x_fin/5
+        update_y_angle -= myRocket.y_fin/5
 
         print("x_angle:", update_x_angle * 180/math.pi)
         print("y_angle:", update_y_angle * 180/math.pi)
@@ -181,18 +203,20 @@ while True:
 
         #display graphs
         if (time.time()%0.1 <0.01):
-            time_data.append(time.time())
+            time_data.append(total_elapsed_time)
             velocity_data.append(myRocket.velocity_up)
             accel_data.append(myRocket.acceleration_up)
             x_fin_data.append(myRocket.x_fin)
             y_fin_data.append(myRocket.y_fin)
             altitude_data.append(myRocket.altitude)
+            wind_data.append(math.sqrt(myRocket.x_wind**2 + myRocket.y_wind**2))
 
             line1.set_data(time_data, velocity_data)
             line2.set_data(time_data, accel_data)
             line3.set_data(time_data, x_fin_data)
             line4.set_data(time_data, y_fin_data)
             line5.set_data(time_data, altitude_data)
+            line6.set_data(time_data, wind_data)
 
             ax1.relim()
             ax1.autoscale_view()
@@ -204,9 +228,19 @@ while True:
             ax4.autoscale_view()
             ax5.relim()
             ax5.autoscale_view()
+            ax6.relim()
+            ax6.autoscale_view()
 
             plt.draw()
             plt.pause(0.01)
 
-        if (myRocket.altitude < 0): 
+        highest_altitude = max(highest_altitude, myRocket.altitude)
+        highest_velocity = max(highest_velocity, myRocket.velocity_up)
+        total_time = time.time() - start_time
+
+        if (myRocket.altitude < 0):
+            #print stats
+            print("highest altitude reached: ", highest_altitude, "meters")
+            print("highest velocity reached: ", highest_velocity, "meters per second")
+            print("total flight time: ", total_time, "seconds")
             break
