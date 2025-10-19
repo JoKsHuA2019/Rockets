@@ -13,14 +13,16 @@ class Rocket:
     x_wind = 0 #in m/s
     y_wind = 0 #in m/s
     mass = 0 #in kg
+    x_drift = 0 #in meters
+    y_drift = 0 #in meters
     
     time = 0 #in seconds
     nose_drag_cf = 0 #unitless
     air_density = 1.225 #kg/m^3 standard air density at sea level
 
     #rocket angling ----
-    x_fin = 0 #in degrees
-    y_fin = 0 #in degrees
+    x_fin = 0 #in radians
+    y_fin = 0 #in radians
     distance_cm_cp = 0 #distance from the cm(center of mass) to the cp(center of pressure)
     side_drag_cf = 0 #the drag coefficient of the side of the rocket(since wide blows from the side)
     side_area = 0 #total area of vertical cross-sectional area of rocket
@@ -61,7 +63,7 @@ class Rocket:
         self.x_wind = x
         self.y_wind = y
 
-    def updateState(self, s, a, t, al, f, x_a, y_a): #input upward speed, time, altitude, lift force (by motors), x angle, y angle
+    def updateState(self, s, a, t, al, f, x_a, y_a, x_dft, y_dft): #input upward speed, time, altitude, lift force (by motors), x angle, y angle, x drift distance, y drift distance
         #---- calculate values of rocket
         totalVelocity = math.sqrt((self.velocity_up*math.tan(self.x_angle))**2 + (self.velocity_up*math.tan(self.y_angle))**2 + self.velocity_up**2) #full velocity, accounting for possible x & y differences
         self.total_velocity = totalVelocity
@@ -76,3 +78,6 @@ class Rocket:
         
         self.x_angle = x_a
         self.y_angle = y_a
+
+        self.x_drift = x_dft
+        self.y_drift = y_dft
